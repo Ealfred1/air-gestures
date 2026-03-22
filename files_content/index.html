@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AirScroll — Touch-Free Scroll Demo</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;700;800&display=swap');
+
+    :root {
+      --bg: #0a0a0f;
+      --surface: #11111a;
+      --border: #1e1e2e;
+      --accent: #00ff88;
+      --accent2: #7c3aed;
+      --warn: #ff6b35;
+      --text: #e8e8f0;
+      --muted: #5a5a72;
+      --card: #13131f;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Syne', sans-serif;
+      min-height: 100vh;
+      overflow: hidden;
+    }
+
+    /* ── GRID LAYOUT ── */
+    .layout {
+      display: grid;
+      grid-template-columns: 340px 1fr;
+      grid-template-rows: 64px 1fr;
+      height: 100vh;
+    }
+
+    /* ── HEADER ── */
+    .header {
+      grid-column: 1 / -1;
+      display: flex;
+      align-items: center;
+      padding: 0 28px;
+      border-bottom: 1px solid var(--border);
+      gap: 16px;
+    }
+
+    .logo {
+      font-size: 18px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      color: var(--accent);
+    }
+
+    .logo span { color: var(--text); }
+
+    .badge {
+      font-family: 'Space Mono', monospace;
+      font-size: 10px;
+      background: var(--accent2);
+      color: #fff;
+      padding: 2px 8px;
+      border-radius: 20px;
+    }
+
+    .header-right {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-family: 'Space Mono', monospace;
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--muted);
+      transition: background 0.3s, box-shadow 0.3s;
+    }
+    .status-dot.active {
+      background: var(--accent);
+      box-shadow: 0 0 8px var(--accent);
+      animation: pulse 1.5s infinite;
+    }
+    .status-dot.calibrating {
+      background: #fbbf24;
+      box-shadow: 0 0 8px #fbbf24;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    /* ── CONTROL PANEL ── */
+    .panel {
+      border-right: 1px solid var(--border);
+      padding: 24px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      overflow-y: auto;
+    }
+
+    .section-label {
+      font-family: 'Space Mono', monospace;
+      font-size: 10px;
+      color: var(--muted);
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+
+    /* ── BIG TOGGLE BUTTON ── */
+    .toggle-btn {
+      width: 100%;
+      height: 64px;
+      border-radius: 12px;
+      border: 1.5px solid var(--border);
+      background: var(--card);
+      color: var(--text);
+      font-family: 'Syne', sans-serif;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      letter-spacing: 0.3px;
+    }
+
+    .toggle-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+    .toggle-btn.active {
+      background: rgba(0, 255, 136, 0.08);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .toggle-btn .icon { font-size: 20px; }
+
+    /* ── MODE SELECTOR ── */
+    .mode-tabs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .mode-tab {
+      padding: 10px;
+      border-radius: 8px;
+      border: 1.5px solid var(--border);
+      background: transparent;
+      color: var(--muted);
+      font-family: 'Space Mono', monospace;
+      font-size: 11px;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-align: center;
+    }
+
+    .mode-tab.selected {
+      border-color: var(--accent2);
+      color: #fff;
+      background: rgba(124, 58, 237, 0.15);
+    }
+
+    /* ── SENSITIVITY SLIDER ── */
+    .slider-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+    }
+
+    .slider-val {
+      font-family: 'Space Mono', monospace;
+      font-size: 12px;
+      color: var(--accent);
+    }
+
+    input[type=range] {
+      width: 100%;
+      accent-color: var(--accent);
+      height: 4px;
+      cursor: pointer;
+    }
+
+    /* ── SIGNAL VISUALIZER ── */
+    .visualizer-container {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px;
+    }
+
+    .visualizer-bars {
+      display: flex;
+      align-items: flex-end;
+      gap: 2px;
+      height: 60px;
+    }
+
+    .bar {
+      flex: 1;
+      border-radius: 2px 2px 0 0;
+      transition: height 0.05s ease;
+      min-height: 2px;
+    }
+
+    /* ── GESTURE READOUT ── */
+    .gesture-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px;
+    }
+
+    .gesture-direction {
+      font-size: 32px;
+      font-weight: 800;
+      color: var(--accent);
+      line-height: 1;
+      margin-bottom: 4px;
+      min-height: 36px;
+      transition: color 0.2s;
+    }
+
+    .gesture-direction.up { color: #60a5fa; }
+    .gesture-direction.down { color: var(--accent); }
+    .gesture-direction.idle { color: var(--muted); }
+
+    .velocity-bar-wrap {
+      height: 4px;
+      background: var(--border);
+      border-radius: 2px;
+      margin-top: 10px;
+      overflow: hidden;
+    }
+
+    .velocity-bar {
+      height: 100%;
+      border-radius: 2px;
+      background: var(--accent);
+      transition: width 0.08s ease, background 0.2s;
+    }
+
+    .velocity-bar.up { background: #60a5fa; }
+
+    /* ── LOG ── */
+    .log {
+      flex: 1;
+      font-family: 'Space Mono', monospace;
+      font-size: 10px;
+      color: var(--muted);
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      overflow: hidden;
+    }
+
+    .log-entry { color: var(--muted); }
+    .log-entry.ok { color: #4ade80; }
+    .log-entry.warn { color: #fbbf24; }
+    .log-entry.err { color: #f87171; }
+
+    /* ── SCROLL DEMO AREA ── */
+    .demo-area {
+      position: relative;
+      overflow: hidden;
+    }
+
+    .scroll-container {
+      height: 100%;
+      overflow-y: auto;
+      padding: 40px 48px;
+      scroll-behavior: smooth;
+    }
+
+    .scroll-container::-webkit-scrollbar { width: 4px; }
+    .scroll-container::-webkit-scrollbar-track { background: transparent; }
+    .scroll-container::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+    .demo-heading {
+      font-size: clamp(32px, 4vw, 56px);
+      font-weight: 800;
+      line-height: 1.05;
+      letter-spacing: -1.5px;
+      margin-bottom: 12px;
+    }
+
+    .demo-heading .hi { color: var(--accent); }
+
+    .demo-subtitle {
+      font-family: 'Space Mono', monospace;
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 48px;
+      line-height: 1.7;
+    }
+
+    .content-block {
+      margin-bottom: 48px;
+      padding: 28px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+    }
+
+    .content-block h3 {
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 10px;
+      color: var(--text);
+    }
+
+    .content-block p {
+      font-family: 'Space Mono', monospace;
+      font-size: 12px;
+      line-height: 1.9;
+      color: var(--muted);
+    }
+
+    .content-block .tag {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-family: 'Space Mono', monospace;
+      font-size: 10px;
+      margin-bottom: 12px;
+    }
+
+    /* ── OVERLAY GESTURE INDICATOR ── */
+    .gesture-overlay {
+      position: absolute;
+      top: 24px;
+      right: 24px;
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      background: rgba(0, 255, 136, 0.12);
+      border: 1.5px solid var(--accent);
+      transition: all 0.15s;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .gesture-overlay.visible {
+      opacity: 1;
+      animation: popIn 0.15s ease;
+    }
+
+    @keyframes popIn {
+      from { transform: scale(0.8); opacity: 0; }
+      to { transform: scale(1); opacity: 1; }
+    }
+
+    /* ── HOW-IT-WORKS MODAL STRIP ── */
+    .how-it-works {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: 12px 24px;
+      background: rgba(10, 10, 15, 0.9);
+      border-top: 1px solid var(--border);
+      font-family: 'Space Mono', monospace;
+      font-size: 10px;
+      color: var(--muted);
+      display: flex;
+      gap: 24px;
+      align-items: center;
+    }
+
+    .how-step {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .how-step span:first-child {
+      color: var(--accent2);
+      font-weight: 700;
+    }
+
+    .arrow { color: var(--border); }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="module">
+import React, { useState, useRef, useEffect, useCallback } from 'https://esm.sh/react@18';
+import { createRoot } from 'https://esm.sh/react-dom@18/client';
+
+// ─────────────────────────────────────────────────────────────
+// SONAR SIGNAL (inline, no module imports needed for demo)
+// ─────────────────────────────────────────────────────────────
+class SonarSignal {
+  constructor({ onData, onVisualizerData, emitFrequency = 20000 } = {}) {
+    this.onData = onData;
+    this.onVisualizerData = onVisualizerData;
+    this.emitFrequency = emitFrequency;
+    this.audioCtx = null;
+    this.oscillator = null;
+    this.analyser = null;
+    this.micStream = null;
+    this.isRunning = false;
+    this._baseline = null;
+    this._baselineReady = false;
+    this._animId = null;
+  }
+
+  async start() {
+    this.micStream = await navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
+    });
+
+    this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    this.oscillator = this.audioCtx.createOscillator();
+    this.oscillator.type = 'sine';
+    this.oscillator.frequency.value = this.emitFrequency;
+
+    const gain = this.audioCtx.createGain();
+    gain.gain.value = 0.06;
+    this.oscillator.connect(gain);
+    gain.connect(this.audioCtx.destination);
+    this.oscillator.start();
+
+    const mic = this.audioCtx.createMediaStreamSource(this.micStream);
+    this.analyser = this.audioCtx.createAnalyser();
+    this.analyser.fftSize = 4096;
+    this.analyser.smoothingTimeConstant = 0.7;
+    mic.connect(this.analyser);
+
+    this.isRunning = true;
+    this._captureBaseline();
+  }
+
+  _captureBaseline() {
+    const bins = this.analyser.frequencyBinCount;
+    const sums = new Float32Array(bins);
+    let frames = 0;
+    const target = 50;
+    const freq = new Float32Array(bins);
+
+    const tick = () => {
+      if (!this.isRunning) return;
+      this.analyser.getFloatFrequencyData(freq);
+      for (let i = 0; i < bins; i++) sums[i] += freq[i];
+      frames++;
+      if (frames < target) { requestAnimationFrame(tick); return; }
+      this._baseline = sums.map(v => v / frames);
+      this._baselineReady = true;
+      this._loop();
+    };
+    requestAnimationFrame(tick);
+  }
+
+  _freqToBin(f) {
+    const nyq = this.audioCtx.sampleRate / 2;
+    return Math.round((f / nyq) * this.analyser.frequencyBinCount);
+  }
+
+  _loop() {
+    if (!this.isRunning || !this._baselineReady) return;
+    const freq = new Float32Array(this.analyser.frequencyBinCount);
+    this.analyser.getFloatFrequencyData(freq);
+
+    const center = this._freqToBin(this.emitFrequency);
+    const win = this._freqToBin(200);
+
+    let lower = 0, upper = 0;
+    for (let i = center - win; i < center - 2; i++) {
+      const d = freq[i] - this._baseline[i];
+      if (d > 0) lower += d;
+    }
+    for (let i = center + 2; i <= center + win; i++) {
+      const d = freq[i] - this._baseline[i];
+      if (d > 0) upper += d;
+    }
+
+    // Feed raw freq data to visualizer
+    const vizData = [];
+    const step = Math.floor(win * 2 / 24);
+    for (let i = center - win; i <= center + win; i += step) {
+      const raw = freq[i] - this._baseline[i];
+      vizData.push(Math.max(0, raw));
+    }
+    this.onVisualizerData?.(vizData);
+
+    const total = lower + upper;
+    if (total > 2.0) {
+      const dir = upper > lower ? 'toward' : 'away';
+      const vel = Math.min(Math.max(upper, lower) / 25, 1.0);
+      this.onData?.({ direction: dir, velocity: vel });
+    } else {
+      this.onData?.({ direction: null, velocity: 0 });
+    }
+    this._animId = requestAnimationFrame(() => this._loop());
+  }
+
+  stop() {
+    this.isRunning = false;
+    if (this._animId) cancelAnimationFrame(this._animId);
+    try { this.oscillator?.stop(); } catch(_) {}
+    this.audioCtx?.close();
+    this.micStream?.getTracks().forEach(t => t.stop());
+    this._baselineReady = false;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// SMOOTHER
+// ─────────────────────────────────────────────────────────────
+class Smoother {
+  constructor({ windowSize = 8, deadZone = 0.08, decayRate = 0.85 } = {}) {
+    this.windowSize = windowSize;
+    this.deadZone = deadZone;
+    this.decayRate = decayRate;
+    this._buf = [];
+    this._vel = 0;
+    this._lastDir = null;
+  }
+  process({ direction, velocity }) {
+    if (!direction || velocity < this.deadZone) {
+      this._vel *= this.decayRate;
+      if (this._vel < 0.01) { this._vel = 0; this._lastDir = null; }
+      return { direction: this._lastDir, velocity: this._vel, active: this._vel > 0.01 };
+    }
+    this._buf.push(velocity);
+    if (this._buf.length > this.windowSize) this._buf.shift();
+    this._vel = this._buf.reduce((a, b) => a + b, 0) / this._buf.length;
+    this._lastDir = direction;
+    return { direction, velocity: this._vel, active: true };
+  }
+  reset() { this._buf = []; this._vel = 0; this._lastDir = null; }
+}
+
+// ─────────────────────────────────────────────────────────────
+// GESTURE RECOGNIZER
+// ─────────────────────────────────────────────────────────────
+class GestureRecognizer {
+  constructor({ onGesture, sensitivity = 0.7 } = {}) {
+    this.onGesture = onGesture;
+    this.sensitivity = sensitivity;
+    this._pending = null;
+    this._count = 0;
+    this._locked = null;
+    this._lockTid = null;
+  }
+  process({ direction, velocity, active }) {
+    if (!active || !direction) { this._unlock(); return; }
+    if (this._locked && direction !== this._locked) return;
+    if (direction === this._pending) this._count++;
+    else { this._pending = direction; this._count = 1; }
+    if (this._count >= 3) {
+      this._locked = direction;
+      this._resetLock();
+      const scrollDir = direction === 'toward' ? 'down' : 'up';
+      this.onGesture?.({ direction: scrollDir, speed: velocity * this.sensitivity * 40, velocity });
+    }
+  }
+  _unlock() { this._pending = null; this._count = 0; }
+  _resetLock() {
+    if (this._lockTid) clearTimeout(this._lockTid);
+    this._lockTid = setTimeout(() => { this._locked = null; }, 300);
+  }
+  reset() { this._pending = null; this._count = 0; this._locked = null; }
+}
+
+// ─────────────────────────────────────────────────────────────
+// DEMO CONTENT BLOCKS
+// ─────────────────────────────────────────────────────────────
+const COLORS = {
+  sonar: { bg: 'rgba(0,255,136,0.06)', border: '#00ff88', tag: '#00ff88', tagBg: 'rgba(0,255,136,0.1)' },
+  vision: { bg: 'rgba(124,58,237,0.06)', border: '#7c3aed', tag: '#a78bfa', tagBg: 'rgba(124,58,237,0.15)' },
+  gesture: { bg: 'rgba(96,165,250,0.06)', border: '#3b82f6', tag: '#60a5fa', tagBg: 'rgba(59,130,246,0.15)' },
+  inject: { bg: 'rgba(251,191,36,0.06)', border: '#f59e0b', tag: '#fbbf24', tagBg: 'rgba(245,158,11,0.15)' },
+};
+
+const BLOCKS = [
+  { id: 1, color: 'sonar', tag: '01 — SIGNAL', title: 'Sonar Detection', body: 'Your speaker emits a 20kHz tone — above the threshold of human hearing. The microphone simultaneously listens for the echo bouncing off nearby surfaces. When your finger enters the field, it shifts the reflected frequency slightly.' },
+  { id: 2, color: 'sonar', tag: '02 — PHYSICS', title: 'The Doppler Effect', body: 'When your finger moves toward the screen, it compresses the returning sound wave — frequency rises. Moving away stretches it — frequency drops. The magnitude of that shift encodes both direction and speed.' },
+  { id: 3, color: 'vision', tag: '03 — FFT', title: 'Fast Fourier Transform', body: 'Raw audio data is useless on its own. AirScroll runs a 4096-bin FFT on every frame to decompose the microphone signal into its frequency components. We monitor a 200Hz window around the emitted tone, looking for energy shifts left and right of center.' },
+  { id: 4, color: 'gesture', tag: '04 — SMOOTHING', title: 'Velocity Smoothing', body: 'A rolling average over 8 frames smooths out noise before anything reaches the gesture layer. A dead zone threshold eliminates tremor. Velocity decays naturally when the signal disappears, preventing sudden stops.' },
+  { id: 5, color: 'gesture', tag: '05 — RECOGNITION', title: 'Intent Locking', body: 'Three consecutive frames in the same direction confirm a gesture. Once confirmed, the direction is locked for 300ms — preventing mid-gesture flips from noise. This is what makes the scroll feel intentional, not accidental.' },
+  { id: 6, color: 'inject', tag: '06 — INJECTION', title: 'Native Scroll Events', body: 'Confirmed gestures are translated into native WheelEvents dispatched directly on your target DOM element. No monkey-patching, no synthetic layers — real browser events that work with any scrollable container.' },
+  { id: 7, color: 'vision', tag: '07 — NEXT', title: 'Vision Mode (Coming)', body: 'The second signal source uses your front-facing camera + MediaPipe Hands to track index fingertip landmark 8. Y-axis delta between frames drives the same pipeline — giving more spatial precision for complex gestures.' },
+  { id: 8, color: 'inject', tag: '08 — MOBILE', title: 'React Native (Phase 2)', body: 'On mobile, the sonar logic moves to native code: Android NDK for real-time audio, AVAudioEngine on iOS. An Android Accessibility Service injects GestureDescriptions system-wide — making ANY app on the device air-scrollable.' },
+];
+
+// ─────────────────────────────────────────────────────────────
+// MAIN APP
+// ─────────────────────────────────────────────────────────────
+function App() {
+  const [isListening, setIsListening] = useState(false);
+  const [status, setStatus] = useState('idle');
+  const [mode, setMode] = useState('sonar');
+  const [sensitivity, setSensitivity] = useState(0.7);
+  const [gesture, setGesture] = useState(null);
+  const [vizBars, setVizBars] = useState(new Array(24).fill(0));
+  const [log, setLog] = useState([
+    { text: 'AirScroll v0.1.0 initialized', type: 'ok' },
+    { text: 'Waiting for activation...', type: '' },
+  ]);
+
+  const scrollRef = useRef(null);
+  const signalRef = useRef(null);
+  const smootherRef = useRef(null);
+  const recognizerRef = useRef(null);
+  const gestureTimerRef = useRef(null);
+
+  const addLog = useCallback((text, type = '') => {
+    setLog(prev => [...prev.slice(-8), { text, type }]);
+  }, []);
+
+  const handleGesture = useCallback((g) => {
+    setGesture(g);
+    scrollRef.current?.scrollBy({ top: g.direction === 'down' ? g.speed : -g.speed });
+    if (gestureTimerRef.current) clearTimeout(gestureTimerRef.current);
+    gestureTimerRef.current = setTimeout(() => setGesture(null), 400);
+  }, []);
+
+  const start = useCallback(async () => {
+    try {
+      setStatus('calibrating');
+      addLog('Requesting microphone access...', '');
+
+      smootherRef.current = new Smoother({ deadZone: 0.08 });
+      recognizerRef.current = new GestureRecognizer({ sensitivity, onGesture: handleGesture });
+
+      signalRef.current = new SonarSignal({
+        onData: (raw) => {
+          const smoothed = smootherRef.current.process(raw);
+          recognizerRef.current.process(smoothed);
+        },
+        onVisualizerData: (bars) => setVizBars(bars),
+      });
+
+      await signalRef.current.start();
+      setIsListening(true);
+      addLog('Microphone granted ✓', 'ok');
+      addLog('Emitting 20kHz tone...', '');
+      addLog('Calibrating baseline (~1.5s)...', 'warn');
+
+      setTimeout(() => {
+        setStatus('listening');
+        addLog('Baseline ready — listening for gestures', 'ok');
+        addLog('Move hand toward/away from screen', '');
+      }, 1600);
+
+    } catch(err) {
+      setStatus('error');
+      addLog(`Error: ${err.message}`, 'err');
+    }
+  }, [sensitivity, handleGesture, addLog]);
+
+  const stop = useCallback(() => {
+    signalRef.current?.stop();
+    signalRef.current = null;
+    smootherRef.current?.reset();
+    recognizerRef.current?.reset();
+    setIsListening(false);
+    setStatus('idle');
+    setGesture(null);
+    setVizBars(new Array(24).fill(0));
+    addLog('Stopped. Microphone released.', '');
+  }, [addLog]);
+
+  const toggle = () => isListening ? stop() : start();
+
+  const statusLabel = { idle: 'IDLE', calibrating: 'CALIBRATING', listening: 'LISTENING', error: 'ERROR' }[status];
+  const dotClass = { idle: '', calibrating: 'calibrating', listening: 'active', error: '' }[status];
+
+  return React.createElement('div', { className: 'layout' },
+    // ── HEADER
+    React.createElement('header', { className: 'header' },
+      React.createElement('div', { className: 'logo' }, 'Air', React.createElement('span', null, 'Scroll')),
+      React.createElement('div', { className: 'badge' }, 'ALPHA'),
+      React.createElement('div', { className: 'header-right' },
+        React.createElement('div', { className: `status-dot ${dotClass}` }),
+        React.createElement('span', null, statusLabel),
+      )
+    ),
+
+    // ── CONTROL PANEL
+    React.createElement('aside', { className: 'panel' },
+      // Toggle
+      React.createElement('div', null,
+        React.createElement('div', { className: 'section-label' }, 'Control'),
+        React.createElement('button', {
+          className: `toggle-btn ${isListening ? 'active' : ''}`,
+          onClick: toggle,
+        },
+          React.createElement('span', { className: 'icon' }, isListening ? '⏹' : '▶'),
+          React.createElement('span', null, isListening ? 'Stop Listening' : 'Start Listening')
+        )
+      ),
+
+      // Mode
+      React.createElement('div', null,
+        React.createElement('div', { className: 'section-label' }, 'Detection Mode'),
+        React.createElement('div', { className: 'mode-tabs' },
+          React.createElement('button', {
+            className: `mode-tab ${mode === 'sonar' ? 'selected' : ''}`,
+            onClick: () => setMode('sonar'),
+          }, '🔊 Sonar'),
+          React.createElement('button', {
+            className: `mode-tab ${mode === 'vision' ? 'selected' : ''}`,
+            onClick: () => setMode('vision'),
+          }, '📷 Vision'),
+        )
+      ),
+
+      // Sensitivity
+      React.createElement('div', null,
+        React.createElement('div', { className: 'slider-row' },
+          React.createElement('div', { className: 'section-label' }, 'Sensitivity'),
+          React.createElement('div', { className: 'slider-val' }, Math.round(sensitivity * 100) + '%'),
+        ),
+        React.createElement('input', {
+          type: 'range', min: 0.1, max: 1.0, step: 0.05,
+          value: sensitivity,
+          onChange: e => setSensitivity(parseFloat(e.target.value))
+        })
+      ),
+
+      // Visualizer
+      React.createElement('div', null,
+        React.createElement('div', { className: 'section-label' }, 'Frequency Signal'),
+        React.createElement('div', { className: 'visualizer-container' },
+          React.createElement('div', { className: 'visualizer-bars' },
+            vizBars.map((v, i) => {
+              const norm = Math.min(v / 15, 1);
+              const mid = vizBars.length / 2;
+              const isUpper = i > mid;
+              const color = norm > 0.1
+                ? (isUpper ? 'rgba(0,255,136,' + (0.3 + norm * 0.7) + ')'
+                            : 'rgba(96,165,250,' + (0.3 + norm * 0.7) + ')')
+                : '#1e1e2e';
+              return React.createElement('div', {
+                key: i,
+                className: 'bar',
+                style: { height: Math.max(3, norm * 56) + 'px', background: color }
+              });
+            })
+          )
+        )
+      ),
+
+      // Gesture readout
+      React.createElement('div', null,
+        React.createElement('div', { className: 'section-label' }, 'Gesture'),
+        React.createElement('div', { className: 'gesture-card' },
+          React.createElement('div', {
+            className: `gesture-direction ${gesture ? gesture.direction : 'idle'}`
+          }, gesture ? (gesture.direction === 'down' ? '↓ SCROLL DOWN' : '↑ SCROLL UP') : '— WAITING'),
+          React.createElement('div', { className: 'velocity-bar-wrap' },
+            React.createElement('div', {
+              className: `velocity-bar ${gesture?.direction === 'up' ? 'up' : ''}`,
+              style: { width: (gesture ? Math.round(gesture.velocity * 100) : 0) + '%' }
+            })
+          )
+        )
+      ),
+
+      // Log
+      React.createElement('div', { className: 'log' },
+        React.createElement('div', { className: 'section-label' }, 'Log'),
+        ...log.map((l, i) =>
+          React.createElement('div', { key: i, className: `log-entry ${l.type}` }, '› ' + l.text)
+        )
+      )
+    ),
+
+    // ── DEMO CONTENT AREA
+    React.createElement('main', { className: 'demo-area' },
+      React.createElement('div', { className: 'scroll-container', ref: scrollRef },
+        React.createElement('div', { className: 'demo-heading' },
+          React.createElement('span', { className: 'hi' }, 'Touch-free'),
+          React.createElement('br'),
+          React.createElement('span', null, 'scrolling.')
+        ),
+        React.createElement('p', { className: 'demo-subtitle' },
+          'Activate the sonar, then wave your hand toward or away from the screen.\n' +
+          'No contact needed. Works in the dark. Scroll down to explore how it works.'
+        ),
+        ...BLOCKS.map(b => {
+          const c = COLORS[b.color];
+          return React.createElement('div', {
+            key: b.id,
+            className: 'content-block',
+            style: { background: c.bg, borderColor: c.border }
+          },
+            React.createElement('div', {
+              className: 'tag',
+              style: { color: c.tag, background: c.tagBg }
+            }, b.tag),
+            React.createElement('h3', null, b.title),
+            React.createElement('p', null, b.body)
+          );
+        }),
+        React.createElement('div', { style: { height: 80 } })
+      ),
+
+      // Gesture overlay indicator
+      React.createElement('div', {
+        className: `gesture-overlay ${gesture ? 'visible' : ''}`,
+        style: gesture?.direction === 'up' ? { borderColor: '#60a5fa', background: 'rgba(96,165,250,0.12)' } : {}
+      }, gesture?.direction === 'down' ? '↓' : '↑'),
+
+      // How it works strip
+      React.createElement('div', { className: 'how-it-works' },
+        React.createElement('div', { className: 'how-step' },
+          React.createElement('span', null, '🔊'),
+          React.createElement('span', null, '20kHz tone emitted')
+        ),
+        React.createElement('span', { className: 'arrow' }, '→'),
+        React.createElement('div', { className: 'how-step' },
+          React.createElement('span', null, '🎙'),
+          React.createElement('span', null, 'Echo captured')
+        ),
+        React.createElement('span', { className: 'arrow' }, '→'),
+        React.createElement('div', { className: 'how-step' },
+          React.createElement('span', null, '〰'),
+          React.createElement('span', null, 'Doppler shift measured')
+        ),
+        React.createElement('span', { className: 'arrow' }, '→'),
+        React.createElement('div', { className: 'how-step' },
+          React.createElement('span', null, '✋'),
+          React.createElement('span', null, 'Gesture confirmed')
+        ),
+        React.createElement('span', { className: 'arrow' }, '→'),
+        React.createElement('div', { className: 'how-step' },
+          React.createElement('span', null, '📜'),
+          React.createElement('span', null, 'Scroll injected')
+        ),
+      )
+    )
+  );
+}
+
+createRoot(document.getElementById('root')).render(React.createElement(App));
+</script>
+</body>
+</html>
